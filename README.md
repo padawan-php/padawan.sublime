@@ -18,3 +18,9 @@ Padawan.php requires PHP 5.5+
 
 Clone this repo to `/path/to/your/sublime-text-3/Packages/`
 and then run `sh install.sh`
+
+# Running
+
+Open your php composer project and then run `Padawan: Generate Index` command.
+After it start padawan.php server with `Padawan: Start Server` command and
+enjoy smart php completion.
