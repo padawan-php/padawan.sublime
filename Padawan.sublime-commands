@@ -1,0 +1,8 @@
+[
+    { "caption": "Padawan: Start Server", "command": "padawan_start_server" },
+    { "caption": "Padawan: Restart Server", "command": "padawan_restart_server" },
+    { "caption": "Padawan: Stop Server", "command": "padawan_stop_server" },
+    { "caption": "Padawan: Add plugin", "command": "padawan_plugin_add" },
+    { "caption": "Padawan: Remove plugin", "command": "padawan_plugin_remove" },
+    { "caption": "Padawan: Generate Index", "command": "padawan_generate_index" }
+]
