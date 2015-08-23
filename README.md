@@ -36,3 +36,17 @@ To get smart autocompletion all you need to do is the following easy steps:
 4. Run the `Padawan: Start Server` from the command palette after index
 generation has stopped
 5. Enjoy smart completion
+
+# Plugins(Extensions)
+
+You can extend Padawan.php by installing different plugins.
+See [Plugins List](https://github.com/mkusher/padawan.php/wiki/Plugins-list)
+for more info.
+
+## Installing
+
+Use `Padawan: Add plugin` and type plugin name, for example `mkusher/padawan-di`
+
+## Removing
+
+Use `Padawan: Remove plugin` and choose one of the installed plugin from list
