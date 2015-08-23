@@ -38,6 +38,45 @@ class PadawanRestartServerCommand(sublime_plugin.TextCommand):
         client.RestartServer()
 
 
+class PadawanPluginAddCommand(sublime_plugin.TextCommand):
+
+    def run(self, edit):
+        def success(name):
+            if not name or not isinstance(name, str):
+                return
+            client.AddPlugin(self.view, name)
+        def on_change(name):
+            return
+        def on_cancel():
+            return
+
+        sublime.active_window().show_input_panel(
+                "Plugin Name",
+                "",
+                success,
+                on_change,
+                on_cancel
+                )
+
+
+class PadawanPluginRemoveCommand(sublime_plugin.TextCommand):
+
+    def run(self, edit):
+        items = client.GetInstalledPlugins()
+        def success(index):
+            if index >= len(items):
+                return
+            name = items[index]
+            if not name:
+                return
+            client.RemovePlugin(self.view, name)
+
+        sublime.active_window().show_quick_panel(
+                items,
+                success,
+                )
+
+
 class PadawanCompleter(sublime_plugin.EventListener):
 
     def run_completion(self, view):

@@ -7,9 +7,11 @@ import re
 
 settings = sublime.load_settings("Padawan.sublime-settings")
 server_addr = "http://127.0.0.1:15155"
-composer = settings.get("padawan_composer")
 timeout = 0.5
 padawanPath = path.dirname(__file__)
+composer = settings.get("padawan_composer")
+if not composer:
+    composer = 'php ' + path.join(padawanPath, 'composer.phar')
 server_path = path.join(padawanPath, 'padawan.php')
 
 
@@ -154,12 +156,13 @@ class PadawanClient:
 
         def Notifier():
             retcode = stream.poll()
-            if retcode is not None:
-                return
 
             line = stream.stdout.readline()
             print(line)
-            sublime.set_timeout(Notifier, 0.005)
+
+            if retcode is None:
+                sublime.set_timeout(Notifier, 0.05)
+                return
 
             if not retcode:
                 client.RestartServer()
@@ -167,7 +170,13 @@ class PadawanClient:
             else:
                 view.set_status("PadawanPlugin", "Plugin installation failed")
 
-        sublime.set_timeout(Notifier, 0.005)
+        sublime.set_timeout(Notifier, 0.05)
+
+    def GetInstalledPlugins(self):
+        plugins_path = path.join(server_path, "plugins.json")
+        if not path.exists(plugins_path):
+            return []
+        return json.load(open(plugins_path, 'r'))
 
     def RemovePlugin(self, view, plugin):
         composerCommand = composer + ' remove'
