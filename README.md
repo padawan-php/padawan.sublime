@@ -29,6 +29,7 @@ and then run `sh install.sh`
 # Running
 
 To get smart autocompletion all you need to do is the following easy steps:
+
 1. Install padawan.sublime plugin
 2. Open your php composer project
 3. Run the `Padawan: Generate Index` from the command palette
