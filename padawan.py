@@ -3,14 +3,13 @@ from os import path
 import urllib
 import json
 import subprocess
-import time
 import re
 
 settings = sublime.load_settings("Padawan.sublime-settings")
 server_addr = "http://127.0.0.1:15155"
 composer = settings.get("padawan_composer")
 timeout = 0.5
-padawanPath = path.join(path.dirname(__file__))
+padawanPath = path.dirname(__file__)
 server_path = path.join(padawanPath, 'padawan.php')
 
 
