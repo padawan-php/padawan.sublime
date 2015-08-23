@@ -42,7 +42,8 @@ class PadawanCompleter(sublime_plugin.EventListener):
 
     def run_completion(self, view):
         view.run_command('auto_complete', {
-            'api_completions_only': True
+            'api_completions_only': True,
+            'disable_auto_insert': True
             })
 
     def on_modified_async(self, view):
@@ -54,21 +55,21 @@ class PadawanCompleter(sublime_plugin.EventListener):
 
         while cursor > 0:
             curChar = view.substr(sublime.Region(cursor-1, cursor))
-            if curChar == ' ':
-                return self.run_completion(view)
             if curChar == '\\':
                 return self.run_completion(view)
             if curChar == '$':
                 return self.run_completion(view)
-            if curChar == ';':
-                return self.run_completion(view)
-            if curChar == '=':
+            if curChar == '(':
                 return self.run_completion(view)
             if cursor > 1:
                 curChar = view.substr(sublime.Region(cursor-2, cursor))
                 if curChar == '->':
                     return self.run_completion(view)
                 if curChar == '::':
+                    return self.run_completion(view)
+            if cursor > 3:
+                curChar = view.substr(sublime.Region(cursor-4, cursor))
+                if curChar == 'use ':
                     return self.run_completion(view)
             cursor -= 1
 

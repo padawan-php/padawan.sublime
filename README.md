@@ -10,6 +10,13 @@ This plugin includes:
 - Commands for index generation and index saving
 - Commands for starting, stopping and restarting the server
 
+# Demo video
+
+Click the image below to watch a short video on what
+Padawan.sublime can already do.
+
+[![ScreenShot](http://i1.ytimg.com/vi/qpLJD24DYcU/maxresdefault.jpg)](https://www.youtube.com/watch?v=qpLJD24DYcU)
+
 # Requirements
 
 Padawan.php requires PHP 5.5+
@@ -21,6 +28,10 @@ and then run `sh install.sh`
 
 # Running
 
-Open your php composer project and then run `Padawan: Generate Index` command.
-After it start padawan.php server with `Padawan: Start Server` command and
-enjoy smart php completion.
+To get smart autocompletion all you need to do is the following easy steps:
+1. Install padawan.sublime plugin
+2. Open your php composer project
+3. Run the `Padawan: Generate Index` from the command palette
+4. Run the `Padawan: Start Server` from the command palette after index
+generation has stopped
+5. Enjoy smart completion
