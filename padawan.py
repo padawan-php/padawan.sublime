@@ -5,68 +5,96 @@ import json
 import subprocess
 import re
 
-settings = sublime.load_settings("Padawan.sublime-settings")
+
+def get_setting(name, default=None):
+    project_data = sublime.active_window().project_data()
+
+    if (project_data and 'padawan' in project_data and
+            name in project_data['padawan']):
+        return project_data['padawan'][name]
+
+    return sublime.load_settings('Padawan.sublime-settings').get(name, default)
+
+
 server_addr = "http://127.0.0.1:15155"
-timeout = 0.5
-padawanPath = path.dirname(__file__)
-composer = settings.get("padawan_composer")
-if not composer:
-    composer = 'php ' + path.join(padawanPath, 'composer.phar')
-server_path = path.join(padawanPath, 'padawan.php')
+cli = 'padawan'
+server_command = 'padawan-server'
 
 
-class IndexGenerator:
+class Server:
 
-    def Generate(self, view, projectRoot):
-        generatorCommand = server_path + '/bin/cli'
-        stream = subprocess.Popen(
-            'cd ' + projectRoot + ' && ' + generatorCommand + ' generate',
+    def start(self):
+        subprocess.Popen(
+            server_command,
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT
         )
-        self.Notify(view, stream)
 
-    def Notify(self, view, stream):
-        retcode = stream.poll()
-        if retcode is not None:
-            self.drawBars(view, 100)
-            return
-        line = stream.stdout.readline().decode('ascii')
-        errorMatch = re.search('Error: (.*)', line)
-        if errorMatch is not None:
-            retcode = 1
-            print(errorMatch.group(1).replace("'", "''"))
-            return
+    def stop(self):
+        try:
+            self.sendRequest('kill', {})
+            return True
+        except Exception:
+            return False
 
-        generator = self
+    def restart(self):
+        if self.stop():
+            self.start()
 
-        def Notifier():
-            return generator.Notify(view, stream)
+    def sendRequest(self, command, params, data=''):
+        timeout = get_setting("padawan_timeout", 0.5)
+        addr = server_addr + "/"+command+"?" + urllib.parse.urlencode(params)
+        response = urllib.request.urlopen(
+            addr,
+            data.encode("utf8"),
+            timeout
+        )
+        result = json.loads(response.read().decode("utf8"))
+        if "error" in result:
+            raise ValueError(result["error"])
+        return result
 
-        match = re.search('Progress: ([0-9]+)', line)
-        if not match or match is None:
-            sublime.set_timeout(Notifier, 0.005)
 
-        progress = int(match.group(1))
-        self.drawBars(view, progress)
+class Editor:
 
-        sublime.set_timeout(Notifier, 0.005)
+    def getView(self):
+        return sublime.active_window().active_view()
 
-    def drawBars(self, view, progress):
+    def log(self, message):
+        print(message)
+
+    def notify(self, message):
+        self.getView().set_status("PadawanStatus", message)
+
+    def progress(self, progress):
         bars = int(progress / 5)
-        barsStr = ''
+        bars_str = ''
         for i in range(20):
             if i < bars:
-                barsStr += '='
+                bars_str += '='
             else:
-                barsStr += ' '
-        barsStr = '[' + barsStr + ']'
+                bars_str += ' '
+        bars_str = '[' + bars_str + ']'
+        message = "Progress {0} {1}%".format(bars_str, str(progress))
 
-        view.set_status(
-            "PadawanIndexGeneration",
-            "Progress "+barsStr+' '+str(progress)+"%"
-            )
+        self.getView().set_status("PadawanProgress", message)
+        return
+
+    def error(self, error):
+        self.notify(error)
+
+    def callAfter(self, timeout, callback):
+        def Notifier():
+            if callback():
+                sublime.set_timeout(Notifier, timeout)
+        sublime.set_timeout(Notifier, timeout)
+
+server = Server()
+editor = Editor()
+pathError = '''padawan command is not found in your $PATH. Please\
+ make sure you installed padawan.php package and\
+ configured your $PATH'''
 
 
 class PadawanClient:
@@ -75,11 +103,11 @@ class PadawanClient:
         curPath = self.GetProjectRoot(filepath)
 
         params = {
-            'filepath': filepath.replace(curPath, ""),
-            'line': line_num,
-            'column': column_num,
-            'path': curPath
-        }
+                'filepath': filepath.replace(curPath, ""),
+                'line': line_num,
+                'column': column_num,
+                'path': curPath
+                }
         result = self.DoRequest('complete', params, contents)
 
         if not result:
@@ -92,142 +120,151 @@ class PadawanClient:
 
     def DoRequest(self, command, params, data=''):
         try:
-            return self.SendRequest(command, params, data)
+            return server.sendRequest(command, params, data)
         except urllib.request.URLError:
-            sublime.status_message("Padawan is not running")
+            editor.error("Padawan.php is not running")
         except Exception as e:
-            print('Error occured {0}'.format(e))
+            editor.error("Error occured {0}".format(e.message))
 
         return False
 
-    def SendRequest(self, command, params, data=''):
-        addr = server_addr + "/"+command+"?" + urllib.parse.urlencode(params)
-        response = urllib.request.urlopen(
-            addr,
-            data.encode("utf8"),
-            timeout
-        )
-        completions = json.loads(response.read().decode("utf8"))
-        if "error" in completions:
-            raise ValueError(completions["error"])
-        return completions
+    def AddPlugin(self, plugin):
+        composer = get_setting("padawan_composer", "composer")
+        composerCommand = composer + ' global require '
 
-    def StartServer(self):
-        command = '{0}/bin/server.php > {0}/../logs/server.log'.format(
-            server_path
-        )
-        subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
-        )
-
-    def StopServer(self):
-        try:
-            self.SendRequest('kill', {})
-            return True
-        except Exception:
-            return False
-
-    def RestartServer(self):
-        if self.StopServer():
-            self.StartServer()
-
-    def AddPlugin(self, view, plugin):
-        composerCommand = composer + ' require '
-        generatorCommand = server_path + '/bin/cli'
-
-        view.set_status("PadawanPlugin", "Started plugin installation")
-        command = 'cd {0} && {1} {3} && {2} plugin add {3}'.format(
-            self.PadawanPHPPath(),
-            composerCommand,
-            generatorCommand,
-            plugin
-        )
+        command = '{0} {2} && {1} plugin add {2}'.format(
+                composerCommand,
+                cli,
+                plugin
+                )
 
         stream = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
-        )
-        client = self
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+                )
 
-        def Notifier():
-            retcode = stream.poll()
-
-            line = stream.stdout.readline()
-            print(line)
-
-            if retcode is None:
-                sublime.set_timeout(Notifier, 0.05)
-                return
-
+        def OnAdd(retcode):
             if not retcode:
-                client.RestartServer()
-                view.set_status("PadawanPlugin", "Plugin installed")
+                server.restart()
+                editor.notify("Plugin installed")
             else:
-                view.set_status("PadawanPlugin", "Plugin installation failed")
+                if retcode == 127:
+                    editor.error(pathError)
+                editor.error("Plugin installation failed")
 
-        sublime.set_timeout(Notifier, 0.05)
+        def LogAdding():
+            retcode = stream.poll()
+            if retcode is not None:
+                return OnAdd(retcode)
 
-    def GetInstalledPlugins(self):
-        plugins_path = path.join(server_path, "plugins.json")
-        if not path.exists(plugins_path):
-            return []
-        return json.load(open(plugins_path, 'r'))
+            line = stream.stdout.readline().decode("ascii")
+            editor.log(line)
+            return True
+        editor.callAfter(1e-4, LogAdding)
 
-    def RemovePlugin(self, view, plugin):
-        composerCommand = composer + ' remove'
-        generatorCommand = server_path + '/bin/cli'
+    def RemovePlugin(self, plugin):
+        composer = get_setting("padawan_composer", "composer")
+        composerCommand = composer + ' global remove'
 
-        command = 'cd {0} && {1} {2}'.format(
-            self.PadawanPHPPath(),
-            composerCommand,
-            plugin
-        )
+        command = '{0} {1}'.format(
+                composerCommand,
+                plugin
+                )
 
-        subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
-        )
+        stream = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+                )
 
-        subprocess.Popen(
-            'cd {0} && {1}'.format(
-                self.PadawanPHPPath(),
-                generatorCommand + ' plugin remove ' + plugin
-            ),
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
-        ).wait()
+        def onRemoved():
+            subprocess.Popen(
+                    '{0}'.format(
+                        cli + ' plugin remove ' + plugin
+                        ),
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT
+                    ).wait()
+            self.RestartServer()
+            return editor.notify("Plugin removed")
 
-        self.RestartServer()
-        view.set_status("PadawanPlugin", "Plugin removed")
+        def LogRemoving():
+            retcode = stream.poll()
+            if retcode is not None:
+                return onRemoved()
 
-    def Generate(self, filepath, view):
+            line = stream.stdout.readline().decode("ascii")
+            editor.log(line)
+            return True
+
+        editor.callAfter(1e-4, LogRemoving)
+
+    def Generate(self, filepath):
         curPath = self.GetProjectRoot(filepath)
-        generator = IndexGenerator()
-        generator.Generate(view, curPath)
-        self.RestartServer()
+        stream = subprocess.Popen(
+                'cd ' + curPath + ' && ' + cli + ' generate',
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+                )
+
+        def onGenerationEnd(retcode):
+            if retcode > 0:
+                if retcode == 127:
+                    editor.error(pathError)
+                else:
+                    editor.error("Error occured, code: {0}".format(
+                        str(retcode)
+                        ))
+                return
+            server.restart()
+            editor.progress(100)
+            editor.notify("Index generated")
+
+        def ProcessGenerationPoll():
+            retcode = stream.poll()
+            if retcode is not None:
+                return onGenerationEnd(retcode)
+            line = stream.stdout.readline().decode("utf8")
+            errorMatch = re.search('Error: (.*)', line)
+            if errorMatch is not None:
+                retcode = 1
+                editor.error("{0}".format(
+                    errorMatch.group(1).replace("'", "''")
+                    ))
+                return
+            match = re.search('Progress: ([0-9]+)', line)
+            if match is None:
+                return True
+            progress = int(match.group(1))
+            editor.progress(progress)
+            return True
+
+        editor.callAfter(1e-4, ProcessGenerationPoll)
+
+    def StartServer(self):
+        server.start()
+
+    def StopServer(self):
+        server.stop()
+
+    def RestartServer(self):
+        server.restart()
 
     def GetProjectRoot(self, filepath):
         curPath = path.dirname(filepath)
         while curPath != '/' and not path.exists(
-            path.join(curPath, 'composer.json')
-        ):
+                path.join(curPath, 'composer.json')
+                ):
             curPath = path.dirname(curPath)
 
         if curPath == '/':
             curPath = path.dirname(filepath)
 
         return curPath
-
-    def PadawanPHPPath(self):
-        return padawanPath + '/padawan.php/'
-
 
 client = PadawanClient()

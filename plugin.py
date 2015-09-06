@@ -17,7 +17,7 @@ class PadawanGenerateIndexCommand(sublime_plugin.TextCommand):
         fname = self.view.file_name()
         if fname is None:
             return None
-        client.Generate(fname, self.view)
+        client.Generate(fname)
 
 
 class PadawanStartServerCommand(sublime_plugin.TextCommand):
@@ -44,9 +44,11 @@ class PadawanPluginAddCommand(sublime_plugin.TextCommand):
         def success(name):
             if not name or not isinstance(name, str):
                 return
-            client.AddPlugin(self.view, name)
+            client.AddPlugin(name)
+
         def on_change(name):
             return
+
         def on_cancel():
             return
 
@@ -63,13 +65,14 @@ class PadawanPluginRemoveCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
         items = client.GetInstalledPlugins()
+
         def success(index):
             if index >= len(items):
                 return
             name = items[index]
             if not name:
                 return
-            client.RemovePlugin(self.view, name)
+            client.RemovePlugin(name)
 
         sublime.active_window().show_quick_panel(
                 items,
@@ -110,6 +113,12 @@ class PadawanCompleter(sublime_plugin.EventListener):
                 curChar = view.substr(sublime.Region(cursor-4, cursor))
                 if curChar == 'use ':
                     return self.run_completion(view)
+                if curChar == 'new ':
+                    return self.run_completion(view)
+                if cursor > 9:
+                    curChar = view.substr(sublime.Region(cursor-10, cursor))
+                    if curChar == 'namespace ':
+                        return self.run_completion(view)
             cursor -= 1
 
     def on_query_completions(self, view, prefix, locations):
