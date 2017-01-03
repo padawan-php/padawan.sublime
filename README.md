@@ -1,6 +1,8 @@
 Padawan.sublime
 ===============
 
+**No plans for Windows support**
+
 Padawan.sublime is a Sublime Text 3 plugin for [padawan.php server
 ](https://github.com/mkusher/padawan.php), a smart PHP code
 completion server for Composer projects.
