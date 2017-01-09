@@ -1,11 +1,19 @@
 import sublime
 from os import path
-import urllib
 import json
 import subprocess
 import re
 
-urllib2 = urllib.request
+try:
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
+    from urllib.request import Request
+    from urllib.request import URLError
+except ImportError:
+    from urllib import urlencode
+    from urllib2 import urlopen
+    from urllib2 import Request
+    from urllib2 import URLError
 
 def get_setting(name, default=None):
     project_data = sublime.active_window().project_data()
@@ -45,11 +53,11 @@ class Server:
 
     def sendRequest(self, command, params, data=''):
         timeout = get_setting("padawan_timeout", 0.5)
-        addr = server_addr + "/"+command+"?" + urllib.parse.urlencode(params)
-        request = urllib2.Request(addr, headers={
+        addr = server_addr + "/"+command+"?" + urlencode(params)
+        request = Request(addr, headers={
             "Content-Type": "plain/text"
         }, data = data.encode("utf8"))
-        response = urllib2.urlopen(
+        response = urlopen(
             request,
             timeout=timeout
         )
@@ -126,7 +134,7 @@ class PadawanClient:
             response = server.sendRequest(command, params, data)
             editor.error("")
             return response
-        except urllib.request.URLError:
+        except URLError:
             editor.error("Padawan.php is not running")
         except Exception as e:
             editor.error("Error occured {0}".format(e))
