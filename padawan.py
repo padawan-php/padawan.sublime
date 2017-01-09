@@ -123,7 +123,9 @@ class PadawanClient:
 
     def DoRequest(self, command, params, data=''):
         try:
-            return server.sendRequest(command, params, data)
+            response = server.sendRequest(command, params, data)
+            editor.error("")
+            return response
         except urllib.request.URLError:
             editor.error("Padawan.php is not running")
         except Exception as e:
